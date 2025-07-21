@@ -15,6 +15,29 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
+  // Webpack configuration for PDF parsing compatibility
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Server-side configuration for pdf-parse
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'pdf-parse': 'pdf-parse/lib/pdf-parse.js',
+      };
+
+      // Ignore pdf-parse test files to prevent ENOENT errors
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+      };
+
+      // Externalize pdf-parse to prevent bundling issues
+      config.externals = config.externals || [];
+      config.externals.push('pdf-parse');
+    }
+    return config;
+  },
+
   images: {
     // https://vercel.com/docs/image-optimization/managing-image-optimization-costs#minimizing-image-optimization-costs
     // https://nextjs.org/docs/app/api-reference/components/image#unoptimized
