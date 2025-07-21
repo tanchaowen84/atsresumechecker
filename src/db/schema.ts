@@ -89,12 +89,4 @@ export const creditsHistory = pgTable("credits_history", {
 	metadata: jsonb('metadata').default('{}'),
 });
 
-export const atsScans = pgTable("ats_scans", {
-	id: text("id").primaryKey(),
-	userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }), // 可选，登录用户
-	score: integer('score').notNull(), // 总分 0-100
-	scores: jsonb('scores').notNull(), // 6维度分数详情 {hardSkills: 0.67, jobTitle: 1.0, ...}
-	missingKeywords: jsonb('missing_keywords').notNull(), // 缺失关键词 {hardSkills: ['Java', 'SQL'], ...}
-	formatRisks: jsonb('format_risks').notNull(), // 格式风险 ['table_detected', 'two_column_layout']
-	createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+

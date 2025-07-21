@@ -1,0 +1,1 @@
+DROP TABLE "ats_scans" CASCADE;

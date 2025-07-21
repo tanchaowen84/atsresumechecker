@@ -16,16 +16,13 @@
 ## 📅 **开发计划 (7天)**
 
 ### **Day 1: 基础架构和数据库**
-#### 🗄️ **数据库Schema设计**
-- [ ] 新增ATS扫描记录表到 `src/db/schema.ts`
-  ```sql
-  atsScans: {
-    id, sessionId, userId, score, scores(jsonb), 
-    missingKeywords(jsonb), formatRisks(jsonb), createdAt
-  }
-  ```
-- [ ] 运行数据库迁移 `pnpm db:generate && pnpm db:push`
-- [ ] 测试数据库连接和新表创建
+#### 🗄️ **数据库Schema调整**
+- [x] ~~新增ATS扫描记录表~~ **已取消** - 采用无存储方案
+- [x] ~~运行数据库迁移~~ **不需要** - 使用现有用户和支付表
+- [ ] **利用现有表结构**:
+  - `user` 表: 用户身份识别和认证
+  - `payment` 表: 付费用户状态判断
+  - 现有分析系统: Clarity追踪用户行为
 
 #### 📦 **依赖包安装**
 - [ ] 安装核心解析包
@@ -84,11 +81,13 @@
 - [ ] 单元测试解析功能
 - [ ] 验证解析成功率 ≥96%
 
-#### 🔧 **文件上传API调整**
-- [ ] 修改 `src/app/api/storage/upload/route.ts`
-  - 支持PDF/DOCX文件类型
-  - 调整文件验证逻辑
-  - 保持10MB大小限制
+#### 🔧 **ATS专用API设计**
+- [ ] **保留现有上传API** - `src/app/api/storage/upload/route.ts` 用于其他功能
+- [ ] **创建ATS扫描API** - `src/app/api/ats/scan/route.ts`
+  - 接收PDF/DOCX文件 + JD文本
+  - 支持文件类型: `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+  - 文件大小限制: 2MB (简历文件通常较小)
+  - **内存处理模式**: 文件不存储到S3，仅在内存中解析后立即丢弃
 
 ---
 
@@ -120,11 +119,14 @@
 ### **Day 4: ATS扫描API和核心页面**
 #### 🚀 **核心API实现**
 - [ ] 创建 `src/app/api/ats/scan/route.ts`
-  - 文件接收和验证
-  - 解析链调用
-  - 评分计算
-  - 结果返回
-  - 错误处理
+  - **请求处理**: 接收FormData (file + jdText)
+  - **文件验证**: PDF/DOCX类型检查，2MB大小限制
+  - **内存解析**: 直接在内存中解析文件，不存储到磁盘
+  - **解析链调用**: PDF → pdf-parse, DOCX → mammoth
+  - **评分计算**: 6维度算法计算
+  - **结果返回**: JSON格式返回分数、缺失关键词、格式风险
+  - **隐私保护**: 处理完成后立即释放内存中的文件数据
+  - **错误处理**: 解析失败、文件损坏等异常情况
 
 #### 📱 **主检测页面**
 - [ ] 创建 `src/app/[locale]/(marketing)/checker/page.tsx`
@@ -228,43 +230,133 @@
 
 ## 🔧 **技术实现细节**
 
+### **API接口设计**
+```typescript
+// POST /api/ats/scan
+interface ATSScanRequest {
+  file: File;           // PDF或DOCX文件
+  jdText: string;       // 职位描述文本
+}
+
+interface ATSScanResponse {
+  success: boolean;
+  data?: {
+    score: number;                    // 总分 0-100
+    scores: {                         // 6维度详细分数
+      hardSkills: number;
+      jobTitle: number;
+      softSkills: number;
+      certifications: number;
+      education: number;
+      tools: number;
+    };
+    missingKeywords: {                // 缺失关键词分类
+      hardSkills: string[];
+      softSkills: string[];
+      certifications: string[];
+      tools: string[];
+    };
+    formatRisks: string[];            // 格式风险列表
+  };
+  error?: string;
+}
+```
+
 ### **核心算法配置**
 ```typescript
 // 6维度权重配置
 const SCORING_WEIGHTS = {
-  hardSkills: 0.40,      // 硬技能
-  jobTitle: 0.20,        // 职位标题
+  hardSkills: 0.40,      // 硬技能 - 最重要
+  jobTitle: 0.20,        // 职位标题匹配
   softSkills: 0.15,      // 软技能
-  certifications: 0.10,  // 证书
+  certifications: 0.10,  // 证书认证
   education: 0.10,       // 教育背景
   tools: 0.05           // 工具/技术栈
 };
 ```
 
-### **文件处理流程**
-1. 文件上传验证 (类型、大小)
-2. PDF/DOCX解析提取文本
-3. 关键词提取和分类
-4. 6维度评分计算
-5. 格式风险检测
-6. 结果组装和返回
+### **文件处理流程 (内存模式)**
+```
+用户上传 → 内存接收 → 文件验证 → 解析提取 → 关键词分析 → 评分计算 → 返回结果 → 内存释放
+```
 
-### **数据库设计**
-- 支持匿名用户扫描 (sessionId)
-- 登录用户关联 (userId)
-- JSONB存储复杂结果数据
-- 创建时间用于统计分析
+**详细步骤:**
+1. **文件接收**: FormData接收文件和JD文本
+2. **验证检查**: 文件类型(PDF/DOCX)、大小(≤2MB)验证
+3. **内存解析**: Buffer转换 → pdf-parse/mammoth解析
+4. **文本提取**: 提取简历文本内容，清理格式
+5. **关键词分析**: 提取JD和简历关键词，TF-IDF计算
+6. **6维度评分**: 硬技能、职位标题、软技能、证书、教育、工具评分
+7. **格式风险**: 检测表格、双栏等ATS不友好格式
+8. **结果返回**: JSON格式返回完整分析结果
+9. **内存清理**: 立即释放文件数据，保护隐私
+
+### **数据存储策略 (基于现有系统)**
+
+#### **🎯 最终方案: 完全无数据库存储 (推荐)**
+
+**理由：我们已经有完整的追踪和管理系统**
+
+```typescript
+// 不使用 ats_scans 表，完全依赖现有系统
+// ✅ 用户行为追踪: Microsoft Clarity Analytics
+// ✅ 付费用户识别: payment 表 + getActiveSubscriptionAction
+// ✅ 使用限制: 基于用户认证状态
+// ✅ 隐私保护: 文件完全不存储
+```
+
+**现有系统能力分析:**
+1. **📊 用户行为分析** - Clarity提供完整的用户会话分析
+   - 用户是否反复访问ATS页面
+   - 页面停留时间和交互行为
+   - 转化漏斗分析
+
+2. **💳 付费用户管理** - 完整的Creem支付集成
+   - `payment.status` 区分免费/付费用户
+   - `user.creemCustomerId` 关联客户信息
+   - `creditsHistory` 记录使用情况
+
+3. **🔐 使用限制策略**
+   ```typescript
+   // 基于用户状态的限制逻辑
+   if (!session) {
+     // 匿名用户: 每日3次 (IP限制)
+   } else if (hasActiveSubscription) {
+     // 付费用户: 无限制
+   } else {
+     // 免费注册用户: 每日10次
+   }
+   ```
+
+**优势:**
+- ✅ **最大隐私保护** - 零数据存储
+- ✅ **实现最简单** - 无需额外数据库操作
+- ✅ **利用现有系统** - 充分发挥已有基础设施价值
+- ✅ **符合MVP理念** - 专注核心功能验证
 
 ---
 
-## ⚠️ **注意事项**
+## ⚠️ **重要注意事项**
 
-1. **保留现有功能**: 不删除认证、支付、文件上传等基础设施
-2. **CDN资源**: 暂时保持现有CDN资源，后续替换为Cloudflare R2
-3. **国际化**: 只保留英文，移除其他语言配置
-4. **错误处理**: 确保所有异常情况都有优雅的用户提示
-5. **性能优化**: 大文件解析需要考虑内存和时间限制
-6. **隐私保护**: 文件仅驻内存，处理后立即释放
+### **🔒 隐私和安全**
+1. **文件不持久化**: 文件仅在内存中处理，完成后立即释放
+2. **数据保护**: 符合GDPR要求，用户文件不存储到任何地方
+3. **API安全**: 添加速率限制，防止滥用和攻击
+
+### **🏗️ 架构设计**
+4. **功能隔离**: 不修改现有 `/api/storage/upload`，使用独立的 `/api/ats/scan`
+5. **向后兼容**: 保持现有SaaS基础设施完整性
+6. **模块化**: ATS功能独立模块，便于维护和扩展
+
+### **⚡ 性能优化**
+7. **内存管理**: 文件大小限制2MB，避免内存溢出
+8. **处理超时**: 设置合理的请求超时时间
+9. **并发控制**: 考虑高并发场景下的资源使用
+
+### **🌐 用户体验**
+10. **错误处理**: 文件损坏、格式不支持等异常的友好提示
+11. **加载状态**: 文件解析过程的进度反馈
+12. **响应式设计**: 移动端和桌面端的适配
 
 ---
 
