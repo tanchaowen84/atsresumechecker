@@ -1,6 +1,6 @@
 /**
  * ATS Resume Checker Types
- * 
+ *
  * Core type definitions for the ATS resume checking system
  */
 
@@ -13,6 +13,7 @@ export interface ParsedDocument {
     pageCount?: number;
     wordCount?: number;
     fileSize?: number;
+    processingTime?: number;
   };
 }
 
@@ -95,12 +96,12 @@ export interface ScoringWeights {
 }
 
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
-  hardSkills: 0.40,      // 40% - Most important
-  jobTitle: 0.20,        // 20% - Job title matching
-  softSkills: 0.15,      // 15% - Soft skills
-  certifications: 0.10,  // 10% - Certifications
-  education: 0.10,       // 10% - Education background
-  tools: 0.05           // 5% - Tools/tech stack
+  hardSkills: 0.4, // 40% - Most important
+  jobTitle: 0.2, // 20% - Job title matching
+  softSkills: 0.15, // 15% - Soft skills
+  certifications: 0.1, // 10% - Certifications
+  education: 0.1, // 10% - Education background
+  tools: 0.05, // 5% - Tools/tech stack
 };
 
 // Error types

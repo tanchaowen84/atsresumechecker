@@ -1,17 +1,17 @@
 /**
  * DOCX Parser for ATS Resume Checker
- * 
+ *
  * Uses mammoth library to extract text from DOCX files
  * Includes error handling and text cleaning
  */
 
 import mammoth from 'mammoth';
-import type { ParsedDocument, FileParseOptions } from '../types';
+import type { FileParseOptions, ParsedDocument } from '../types';
 import { ParseError } from '../types';
 
 /**
  * Parse DOCX file and extract text content
- * 
+ *
  * @param buffer - DOCX file buffer
  * @param options - Parsing options
  * @returns Promise<ParsedDocument>
@@ -21,7 +21,7 @@ export async function parseDOCX(
   options: FileParseOptions = {}
 ): Promise<ParsedDocument> {
   const startTime = Date.now();
-  
+
   try {
     // Validate file size
     const maxSize = options.maxFileSize || 2 * 1024 * 1024; // 2MB default
@@ -38,39 +38,23 @@ export async function parseDOCX(
 
     // Set timeout for parsing
     const timeout = options.timeout || 30000; // 30s default
-    
-    // Configure mammoth options for better text extraction
-    const mammothOptions = {
-      // Convert styles to maintain some formatting context
-      styleMap: [
-        "p[style-name='Heading 1'] => h1:fresh",
-        "p[style-name='Heading 2'] => h2:fresh",
-        "p[style-name='Heading 3'] => h3:fresh",
-        "b => strong",
-        "i => em"
-      ],
-      // Include document relationships for better parsing
-      includeDefaultStyleMap: true,
-      // Transform document for better text extraction
-      transformDocument: mammoth.transforms.paragraph(function(element) {
-        // Preserve paragraph structure
-        return element;
-      })
-    };
 
-    // Parse DOCX with timeout
-    const parsePromise = mammoth.extractRawText(buffer, mammothOptions);
-    
+    // Parse DOCX with timeout - mammoth.extractRawText accepts buffer input
+    const parsePromise = mammoth.extractRawText({ buffer });
+
     const result = await Promise.race([
       parsePromise,
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new ParseError('DOCX parsing timeout')), timeout)
-      )
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new ParseError('DOCX parsing timeout')),
+          timeout
+        )
+      ),
     ]);
 
     // Clean and validate extracted text
     const cleanedText = cleanDOCXText(result.value);
-    
+
     if (!cleanedText || cleanedText.trim().length === 0) {
       throw new ParseError('No text content found in DOCX');
     }
@@ -78,9 +62,9 @@ export async function parseDOCX(
     // Check for parsing warnings
     if (result.messages && result.messages.length > 0) {
       const warnings = result.messages
-        .filter(msg => msg.type === 'warning')
-        .map(msg => msg.message);
-      
+        .filter((msg) => msg.type === 'warning')
+        .map((msg) => msg.message);
+
       if (warnings.length > 0) {
         console.warn('DOCX parsing warnings:', warnings);
       }
@@ -95,9 +79,8 @@ export async function parseDOCX(
       metadata: {
         wordCount: countWords(cleanedText),
         fileSize: buffer.length,
-      }
+      },
     };
-
   } catch (error) {
     const processingTime = Date.now() - startTime;
     console.error(`DOCX parsing failed after ${processingTime}ms:`, error);
@@ -106,7 +89,7 @@ export async function parseDOCX(
       return {
         text: '',
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
 
@@ -127,7 +110,7 @@ export async function parseDOCX(
     return {
       text: '',
       success: false,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
@@ -137,16 +120,25 @@ export async function parseDOCX(
  */
 function isDOCXBuffer(buffer: Buffer): boolean {
   if (buffer.length < 4) return false;
-  
+
   // Check for ZIP header signature (DOCX is a ZIP file)
   const header = buffer.subarray(0, 4);
   return (
     // Standard ZIP signature
-    (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04) ||
+    (header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      header[2] === 0x03 &&
+      header[3] === 0x04) ||
     // Empty ZIP signature
-    (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x05 && header[3] === 0x06) ||
+    (header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      header[2] === 0x05 &&
+      header[3] === 0x06) ||
     // Spanned ZIP signature
-    (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x07 && header[3] === 0x08)
+    (header[0] === 0x50 &&
+      header[1] === 0x4b &&
+      header[2] === 0x07 &&
+      header[3] === 0x08)
   );
 }
 
@@ -156,30 +148,32 @@ function isDOCXBuffer(buffer: Buffer): boolean {
 function cleanDOCXText(text: string): string {
   if (!text) return '';
 
-  return text
-    // Remove excessive whitespace
-    .replace(/\s+/g, ' ')
-    // Remove page breaks and form feeds
-    .replace(/[\f\r]/g, '')
-    // Normalize line breaks
-    .replace(/\n\s*\n/g, '\n')
-    // Remove leading/trailing whitespace
-    .trim()
-    // Remove common DOCX artifacts
-    .replace(/\u0000/g, '') // null characters
-    .replace(/\ufffd/g, '') // replacement characters
-    // Remove excessive tabs
-    .replace(/\t+/g, ' ')
-    // Fix common encoding issues
-    .replace(/â€™/g, "'") // smart apostrophe
-    .replace(/â€œ/g, '"') // smart quote left
-    .replace(/â€\u009d/g, '"') // smart quote right
-    .replace(/â€"/g, '–') // en dash
-    .replace(/â€"/g, '—') // em dash
-    // Remove header/footer artifacts
-    .replace(/^(Header|Footer):\s*/gm, '')
-    // Clean up bullet points
-    .replace(/^[•·▪▫‣⁃]\s*/gm, '• ');
+  return (
+    text
+      // Remove excessive whitespace
+      .replace(/\s+/g, ' ')
+      // Remove page breaks and form feeds
+      .replace(/[\f\r]/g, '')
+      // Normalize line breaks
+      .replace(/\n\s*\n/g, '\n')
+      // Remove leading/trailing whitespace
+      .trim()
+      // Remove common DOCX artifacts
+      .replace(/\0/g, '') // null characters
+      .replace(/\ufffd/g, '') // replacement characters
+      // Remove excessive tabs
+      .replace(/\t+/g, ' ')
+      // Fix common encoding issues
+      .replace(/â€™/g, "'") // smart apostrophe
+      .replace(/â€œ/g, '"') // smart quote left
+      .replace(/â€\u009d/g, '"') // smart quote right
+      .replace(/â€"/g, '–') // en dash
+      .replace(/â€"/g, '—') // em dash
+      // Remove header/footer artifacts
+      .replace(/^(Header|Footer):\s*/gm, '')
+      // Clean up bullet points
+      .replace(/^[•·▪▫‣⁃]\s*/gm, '• ')
+  );
 }
 
 /**
@@ -187,19 +181,25 @@ function cleanDOCXText(text: string): string {
  */
 function countWords(text: string): number {
   if (!text) return 0;
-  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0).length;
 }
 
 /**
  * Validate DOCX file before parsing
  */
-export function validateDOCXFile(file: File): { valid: boolean; error?: string } {
+export function validateDOCXFile(file: File): {
+  valid: boolean;
+  error?: string;
+} {
   // Check file extension
   const validExtensions = ['.docx', '.doc'];
-  const hasValidExtension = validExtensions.some(ext => 
+  const hasValidExtension = validExtensions.some((ext) =>
     file.name.toLowerCase().endsWith(ext)
   );
-  
+
   if (!hasValidExtension) {
     return { valid: false, error: 'File must have .docx or .doc extension' };
   }
@@ -208,19 +208,22 @@ export function validateDOCXFile(file: File): { valid: boolean; error?: string }
   const validMimeTypes = [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/msword',
-    'application/vnd.ms-word'
+    'application/vnd.ms-word',
   ];
-  
+
   if (!validMimeTypes.includes(file.type)) {
-    return { valid: false, error: 'Invalid file type. Expected Word document.' };
+    return {
+      valid: false,
+      error: 'Invalid file type. Expected Word document.',
+    };
   }
 
   // Check file size (2MB limit)
   const maxSize = 2 * 1024 * 1024;
   if (file.size > maxSize) {
-    return { 
-      valid: false, 
-      error: `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max: 2MB)` 
+    return {
+      valid: false,
+      error: `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max: 2MB)`,
     };
   }
 

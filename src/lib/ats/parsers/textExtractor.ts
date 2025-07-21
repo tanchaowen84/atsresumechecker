@@ -1,14 +1,14 @@
 /**
  * Unified Text Extractor for ATS Resume Checker
- * 
+ *
  * Provides a single interface for extracting text from various file formats
  * Handles file type detection and routing to appropriate parsers
  */
 
-import { parsePDF, validatePDFFile } from './pdfParser';
+import type { FileParseOptions, ParsedDocument } from '../types';
+import { ParseError, ValidationError } from '../types';
 import { parseDOCX, validateDOCXFile } from './docxParser';
-import type { ParsedDocument, FileParseOptions } from '../types';
-import { ValidationError, ParseError } from '../types';
+import { parsePDF, validatePDFFile } from './pdfParser';
 
 /**
  * Supported file types for resume parsing
@@ -16,14 +16,15 @@ import { ValidationError, ParseError } from '../types';
 export const SUPPORTED_FILE_TYPES = {
   PDF: 'application/pdf',
   DOCX: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  DOC: 'application/msword'
+  DOC: 'application/msword',
 } as const;
 
-export type SupportedFileType = typeof SUPPORTED_FILE_TYPES[keyof typeof SUPPORTED_FILE_TYPES];
+export type SupportedFileType =
+  (typeof SUPPORTED_FILE_TYPES)[keyof typeof SUPPORTED_FILE_TYPES];
 
 /**
  * Extract text from resume file (PDF or DOCX)
- * 
+ *
  * @param file - File object from browser
  * @param options - Parsing options
  * @returns Promise<ParsedDocument>
@@ -33,7 +34,7 @@ export async function extractTextFromFile(
   options: FileParseOptions = {}
 ): Promise<ParsedDocument> {
   const startTime = Date.now();
-  
+
   try {
     // Validate file first
     const validation = validateFile(file);
@@ -43,24 +44,24 @@ export async function extractTextFromFile(
 
     // Convert file to buffer
     const buffer = await fileToBuffer(file);
-    
+
     // Determine file type and route to appropriate parser
     const fileType = detectFileType(file, buffer);
-    
+
     let result: ParsedDocument;
-    
+
     switch (fileType) {
       case SUPPORTED_FILE_TYPES.PDF:
         console.log(`Parsing PDF file: ${file.name}`);
         result = await parsePDF(buffer, options);
         break;
-        
+
       case SUPPORTED_FILE_TYPES.DOCX:
       case SUPPORTED_FILE_TYPES.DOC:
         console.log(`Parsing DOCX file: ${file.name}`);
         result = await parseDOCX(buffer, options);
         break;
-        
+
       default:
         throw new ValidationError(`Unsupported file type: ${file.type}`);
     }
@@ -73,7 +74,6 @@ export async function extractTextFromFile(
 
     console.log(`File extraction completed in ${processingTime}ms`);
     return result;
-
   } catch (error) {
     const processingTime = Date.now() - startTime;
     console.error(`File extraction failed after ${processingTime}ms:`, error);
@@ -82,14 +82,14 @@ export async function extractTextFromFile(
       return {
         text: '',
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
 
     return {
       text: '',
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
     };
   }
 }
@@ -106,9 +106,9 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   // Check file size (global limit)
   const maxSize = 2 * 1024 * 1024; // 2MB
   if (file.size > maxSize) {
-    return { 
-      valid: false, 
-      error: `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max: 2MB)` 
+    return {
+      valid: false,
+      error: `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max: 2MB)`,
     };
   }
 
@@ -119,17 +119,19 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   // Check file type
   const supportedTypes = Object.values(SUPPORTED_FILE_TYPES);
   if (!supportedTypes.includes(file.type as SupportedFileType)) {
-    return { 
-      valid: false, 
-      error: `Unsupported file type: ${file.type}. Supported: PDF, DOCX` 
+    return {
+      valid: false,
+      error: `Unsupported file type: ${file.type}. Supported: PDF, DOCX`,
     };
   }
 
   // Specific validation based on file type
   if (file.type === SUPPORTED_FILE_TYPES.PDF) {
     return validatePDFFile(file);
-  } else if (
-    file.type === SUPPORTED_FILE_TYPES.DOCX || 
+  }
+
+  if (
+    file.type === SUPPORTED_FILE_TYPES.DOCX ||
     file.type === SUPPORTED_FILE_TYPES.DOC
   ) {
     return validateDOCXFile(file);
@@ -146,9 +148,9 @@ function detectFileType(file: File, buffer: Buffer): SupportedFileType {
   if (file.type === SUPPORTED_FILE_TYPES.PDF) {
     return SUPPORTED_FILE_TYPES.PDF;
   }
-  
+
   if (
-    file.type === SUPPORTED_FILE_TYPES.DOCX || 
+    file.type === SUPPORTED_FILE_TYPES.DOCX ||
     file.type === SUPPORTED_FILE_TYPES.DOC
   ) {
     return SUPPORTED_FILE_TYPES.DOCX;
@@ -159,7 +161,7 @@ function detectFileType(file: File, buffer: Buffer): SupportedFileType {
   if (fileName.endsWith('.pdf')) {
     return SUPPORTED_FILE_TYPES.PDF;
   }
-  
+
   if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
     return SUPPORTED_FILE_TYPES.DOCX;
   }
@@ -170,12 +172,18 @@ function detectFileType(file: File, buffer: Buffer): SupportedFileType {
     if (buffer.subarray(0, 4).toString() === '%PDF') {
       return SUPPORTED_FILE_TYPES.PDF;
     }
-    
+
     // ZIP signature (DOCX is a ZIP file)
     const header = buffer.subarray(0, 4);
     if (
-      (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x03 && header[3] === 0x04) ||
-      (header[0] === 0x50 && header[1] === 0x4B && header[2] === 0x05 && header[3] === 0x06)
+      (header[0] === 0x50 &&
+        header[1] === 0x4b &&
+        header[2] === 0x03 &&
+        header[3] === 0x04) ||
+      (header[0] === 0x50 &&
+        header[1] === 0x4b &&
+        header[2] === 0x05 &&
+        header[3] === 0x06)
     ) {
       return SUPPORTED_FILE_TYPES.DOCX;
     }
@@ -208,13 +216,15 @@ export function getFileTypeInfo(file: File): {
   maxSize: string;
 } {
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
-  const supported = Object.values(SUPPORTED_FILE_TYPES).includes(file.type as SupportedFileType);
-  
+  const supported = Object.values(SUPPORTED_FILE_TYPES).includes(
+    file.type as SupportedFileType
+  );
+
   return {
     type: file.type,
     extension,
     supported,
-    maxSize: '2MB'
+    maxSize: '2MB',
   };
 }
 
@@ -222,5 +232,7 @@ export function getFileTypeInfo(file: File): {
  * Check if file type is supported
  */
 export function isSupportedFileType(file: File): boolean {
-  return Object.values(SUPPORTED_FILE_TYPES).includes(file.type as SupportedFileType);
+  return Object.values(SUPPORTED_FILE_TYPES).includes(
+    file.type as SupportedFileType
+  );
 }
