@@ -1,19 +1,39 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Upload, FileText, AlertCircle, CheckCircle, TrendingUp, Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertCircle,
+  CheckCircle,
+  FileText,
+  Loader2,
+  Search,
+  TrendingUp,
+  Upload,
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface ATSScanResult {
   success: boolean;
   error?: string;
   data?: {
+    atsScore?: {
+      totalScore: number;
+      level: string;
+      dimensionScores: any;
+      qualityMetrics: any;
+    };
     fileInfo: any;
     jobDescription: any;
     resume: any;
@@ -78,7 +98,8 @@ Responsibilities:
     } catch (error) {
       setResult({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
       setIsLoading(false);
@@ -94,7 +115,9 @@ Responsibilities:
     setJobDescription('');
     setResult(null);
     // Clear file input
-    const fileInput = document.getElementById('resume-file') as HTMLInputElement;
+    const fileInput = document.getElementById(
+      'resume-file'
+    ) as HTMLInputElement;
     if (fileInput) fileInput.value = '';
   };
 
@@ -103,7 +126,7 @@ Responsibilities:
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return Number.parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -111,7 +134,8 @@ Responsibilities:
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">ATS Resume Checker</h1>
         <p className="text-muted-foreground">
-          Upload your resume and job description to check ATS compatibility and keyword matching
+          Upload your resume and job description to check ATS compatibility and
+          keyword matching
         </p>
       </div>
 
@@ -140,7 +164,10 @@ Responsibilities:
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* File Upload */}
               <div>
-                <label htmlFor="resume-file" className="text-sm font-medium mb-2 block">
+                <label
+                  htmlFor="resume-file"
+                  className="text-sm font-medium mb-2 block"
+                >
                   Resume File
                 </label>
                 <input
@@ -154,7 +181,9 @@ Responsibilities:
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
                     <FileText className="h-4 w-4" />
                     <span>{file.name}</span>
-                    <Badge variant="secondary">{formatFileSize(file.size)}</Badge>
+                    <Badge variant="secondary">
+                      {formatFileSize(file.size)}
+                    </Badge>
                     <Badge variant="outline">{file.type}</Badge>
                   </div>
                 )}
@@ -162,7 +191,10 @@ Responsibilities:
 
               {/* Job Description */}
               <div>
-                <label htmlFor="job-description" className="text-sm font-medium mb-2 block">
+                <label
+                  htmlFor="job-description"
+                  className="text-sm font-medium mb-2 block"
+                >
                   Job Description ({jobDescription.length} characters)
                 </label>
                 <Textarea
@@ -175,8 +207,8 @@ Responsibilities:
               </div>
             </div>
 
-            <Button 
-              onClick={handleScan} 
+            <Button
+              onClick={handleScan}
               disabled={isLoading || !file || !jobDescription.trim()}
               className="w-full"
             >
@@ -216,44 +248,117 @@ Responsibilities:
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="matching">Keyword Matching</TabsTrigger>
                   <TabsTrigger value="job-keywords">JD Keywords</TabsTrigger>
-                  <TabsTrigger value="resume-keywords">Resume Keywords</TabsTrigger>
+                  <TabsTrigger value="resume-keywords">
+                    Resume Keywords
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-4">
+                  {/* ATS Score Display */}
+                  {result.data.atsScore && (
+                    <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-blue-600 mb-2">
+                          {result.data.atsScore.totalScore}/100
+                        </div>
+                        <div className="text-lg font-medium text-gray-700 mb-1">
+                          ATS Compatibility Score
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Level:{' '}
+                          <span className="font-medium">
+                            {result.data.atsScore.level}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center p-3 bg-muted rounded-lg">
                       <div className="text-2xl font-bold text-green-600">
                         {result.data.matching.matchingRate}%
                       </div>
-                      <div className="text-sm text-muted-foreground">Match Rate</div>
+                      <div className="text-sm text-muted-foreground">
+                        Match Rate
+                      </div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-lg">
                       <div className="text-2xl font-bold text-blue-600">
                         {result.data.matching.totalMatchingKeywords}
                       </div>
-                      <div className="text-sm text-muted-foreground">Matching Keywords</div>
+                      <div className="text-sm text-muted-foreground">
+                        Matching Keywords
+                      </div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-lg">
                       <div className="text-2xl font-bold text-red-600">
                         {result.data.matching.totalMissingKeywords}
                       </div>
-                      <div className="text-sm text-muted-foreground">Missing Keywords</div>
+                      <div className="text-sm text-muted-foreground">
+                        Missing Keywords
+                      </div>
                     </div>
                     <div className="text-center p-3 bg-muted rounded-lg">
                       <div className="text-2xl font-bold">
                         {result.data.performance.totalProcessingTime}ms
                       </div>
-                      <div className="text-sm text-muted-foreground">Processing Time</div>
+                      <div className="text-sm text-muted-foreground">
+                        Processing Time
+                      </div>
                     </div>
                   </div>
 
+                  {/* ATS 5-Dimension Scores */}
+                  {result.data.atsScore && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold">
+                        ATS 5-Dimension Score Details
+                      </h3>
+                      {Object.entries(result.data.atsScore.dimensionScores).map(
+                        ([dimension, score]) => (
+                          <div key={dimension} className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="capitalize font-medium">
+                                {dimension === 'hardSkills' && 'Hard Skills'}
+                                {dimension === 'jobTitle' && 'Job Title'}
+                                {dimension === 'softSkills' && 'Soft Skills'}
+                                {dimension === 'certifications' &&
+                                  'Certifications'}
+                                {dimension === 'tools' && 'Tools & Tech'}
+                              </span>
+                              <span className="font-medium">
+                                {((score as any).score * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                            <Progress
+                              value={(score as any).score * 100}
+                              className="h-2"
+                            />
+                            <div className="text-xs text-gray-500">
+                              Matched: {(score as any).matched}/
+                              {(score as any).total} | Quality:{' '}
+                              {((score as any).qualityScore * 100).toFixed(1)}%
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
                   {/* Category Match Rates */}
                   <div className="space-y-3">
-                    <h3 className="text-lg font-semibold">Category Match Rates</h3>
-                    {Object.entries(result.data.matching.categoryMatchRates).map(([category, rate]) => (
+                    <h3 className="text-lg font-semibold">
+                      Category Match Rates
+                    </h3>
+                    {Object.entries(
+                      result.data.matching.categoryMatchRates
+                    ).map(([category, rate]) => (
                       <div key={category} className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="capitalize">{category.replace(/([A-Z])/g, ' $1').trim()}</span>
+                          <span className="capitalize">
+                            {category.replace(/([A-Z])/g, ' $1').trim()}
+                          </span>
                           <span>{rate}%</span>
                         </div>
                         <Progress value={rate as number} className="h-2" />
@@ -264,14 +369,21 @@ Responsibilities:
 
                 <TabsContent value="matching" className="space-y-4">
                   <div className="space-y-4">
-                    {Object.entries(result.data.matching.matchingByCategory).map(([category, keywords]) => (
+                    {Object.entries(
+                      result.data.matching.matchingByCategory
+                    ).map(([category, keywords]) => (
                       <div key={category}>
                         <h4 className="font-medium text-green-600 mb-2 capitalize">
-                          ✅ {category.replace(/([A-Z])/g, ' $1').trim()} - Matching ({(keywords as string[]).length})
+                          ✅ {category.replace(/([A-Z])/g, ' $1').trim()} -
+                          Matching ({(keywords as string[]).length})
                         </h4>
                         <div className="flex flex-wrap gap-1 mb-4">
                           {(keywords as string[]).map((keyword, index) => (
-                            <Badge key={index} variant="default" className="bg-green-100 text-green-800">
+                            <Badge
+                              key={index}
+                              variant="default"
+                              className="bg-green-100 text-green-800"
+                            >
                               {keyword}
                             </Badge>
                           ))}
@@ -279,76 +391,111 @@ Responsibilities:
                       </div>
                     ))}
 
-                    {Object.entries(result.data.matching.missingByCategory).map(([category, keywords]) => (
-                      <div key={category}>
-                        <h4 className="font-medium text-red-600 mb-2 capitalize">
-                          ❌ {category.replace(/([A-Z])/g, ' $1').trim()} - Missing ({(keywords as string[]).length})
-                        </h4>
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {(keywords as string[]).map((keyword, index) => (
-                            <Badge key={index} variant="destructive" className="bg-red-100 text-red-800">
-                              {keyword}
-                            </Badge>
-                          ))}
+                    {Object.entries(result.data.matching.missingByCategory).map(
+                      ([category, keywords]) => (
+                        <div key={category}>
+                          <h4 className="font-medium text-red-600 mb-2 capitalize">
+                            ❌ {category.replace(/([A-Z])/g, ' $1').trim()} -
+                            Missing ({(keywords as string[]).length})
+                          </h4>
+                          <div className="flex flex-wrap gap-1 mb-4">
+                            {(keywords as string[]).map((keyword, index) => (
+                              <Badge
+                                key={index}
+                                variant="destructive"
+                                className="bg-red-100 text-red-800"
+                              >
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 </TabsContent>
 
                 <TabsContent value="job-keywords" className="space-y-4">
                   <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
-                    {Object.entries(result.data.jobDescription.categoryDistribution).map(([category, count]) => (
-                      <div key={category} className="text-center p-2 bg-muted rounded">
+                    {Object.entries(
+                      result.data.jobDescription.categoryDistribution
+                    ).map(([category, count]) => (
+                      <div
+                        key={category}
+                        className="text-center p-2 bg-muted rounded"
+                      >
                         <div className="font-bold">{count as number}</div>
-                        <div className="text-xs capitalize">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {Object.entries(result.data.jobDescription.keywords).map(([category, keywords]) => (
-                      <div key={category}>
-                        <h4 className="font-medium capitalize mb-2">
-                          {category.replace(/([A-Z])/g, ' $1').trim()} ({(keywords as string[]).length})
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {(keywords as string[]).map((keyword, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {keyword}
-                            </Badge>
-                          ))}
+                        <div className="text-xs capitalize">
+                          {category.replace(/([A-Z])/g, ' $1').trim()}
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    {Object.entries(result.data.jobDescription.keywords).map(
+                      ([category, keywords]) => (
+                        <div key={category}>
+                          <h4 className="font-medium capitalize mb-2">
+                            {category.replace(/([A-Z])/g, ' $1').trim()} (
+                            {(keywords as string[]).length})
+                          </h4>
+                          <div className="flex flex-wrap gap-1">
+                            {(keywords as string[]).map((keyword, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                 </TabsContent>
 
                 <TabsContent value="resume-keywords" className="space-y-4">
                   <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
-                    {Object.entries(result.data.resume.categoryDistribution).map(([category, count]) => (
-                      <div key={category} className="text-center p-2 bg-muted rounded">
+                    {Object.entries(
+                      result.data.resume.categoryDistribution
+                    ).map(([category, count]) => (
+                      <div
+                        key={category}
+                        className="text-center p-2 bg-muted rounded"
+                      >
                         <div className="font-bold">{count as number}</div>
-                        <div className="text-xs capitalize">{category.replace(/([A-Z])/g, ' $1').trim()}</div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {Object.entries(result.data.resume.keywords).map(([category, keywords]) => (
-                      <div key={category}>
-                        <h4 className="font-medium capitalize mb-2">
-                          {category.replace(/([A-Z])/g, ' $1').trim()} ({(keywords as string[]).length})
-                        </h4>
-                        <div className="flex flex-wrap gap-1">
-                          {(keywords as string[]).map((keyword, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {keyword}
-                            </Badge>
-                          ))}
+                        <div className="text-xs capitalize">
+                          {category.replace(/([A-Z])/g, ' $1').trim()}
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    {Object.entries(result.data.resume.keywords).map(
+                      ([category, keywords]) => (
+                        <div key={category}>
+                          <h4 className="font-medium capitalize mb-2">
+                            {category.replace(/([A-Z])/g, ' $1').trim()} (
+                            {(keywords as string[]).length})
+                          </h4>
+                          <div className="flex flex-wrap gap-1">
+                            {(keywords as string[]).map((keyword, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

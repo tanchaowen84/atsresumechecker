@@ -1,10 +1,7 @@
-import { keywordCategorizer } from '@/lib/ats/keywords/categorizer';
 import { enhancedExtractor } from '@/lib/ats/keywords/enhanced-extractor';
-import {
-  calculateTfIdfWeights,
-  extractCategorizedKeywords,
-} from '@/lib/ats/keywords/extractor';
+import { calculateTfIdfWeights } from '@/lib/ats/keywords/extractor';
 import { extractTextFromFile } from '@/lib/ats/parsers/textExtractor';
+import { atsScorer } from '@/lib/ats/scorer';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -125,6 +122,31 @@ export async function POST(request: NextRequest) {
       allKeywords
     );
 
+    // Step 5: Calculate ATS Score using new 5-dimension algorithm
+    console.log('Step 5: Calculating ATS Score...');
+
+    // Prepare ESCO validated keywords set
+    const escoValidatedKeywords = new Set<string>();
+    [jdEnhanced, resumeEnhanced].forEach((enhanced) => {
+      enhanced.validationResults.forEach((result) => {
+        if (result.isValidated && result.confidence > 0.7) {
+          escoValidatedKeywords.add(result.keyword.toLowerCase());
+        }
+      });
+    });
+
+    // Calculate comprehensive ATS score
+    const atsScoreResult = atsScorer.calculateScore(
+      jdEnhanced.validatedKeywords,
+      resumeEnhanced.validatedKeywords,
+      tfidfWeights,
+      escoValidatedKeywords
+    );
+
+    console.log(
+      `✅ ATS Score calculated: ${atsScoreResult.totalScore}/100 (${atsScoreResult.level})`
+    );
+
     // Find matching keywords by category using ESCO-validated keywords
     const matchingByCategory = {
       hardSkills: jdEnhanced.validatedKeywords.hardSkills.filter((keyword) =>
@@ -207,6 +229,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        // ATS Score - New 5-dimension scoring system
+        atsScore: {
+          totalScore: atsScoreResult.totalScore,
+          level: atsScoreResult.level,
+          dimensionScores: atsScoreResult.dimensionScores,
+          qualityMetrics: atsScoreResult.qualityMetrics,
+        },
+
         // File processing info
         fileInfo: {
           name: file.name,
