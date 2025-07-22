@@ -340,39 +340,6 @@ export const KEYWORD_CATEGORIES = {
     'linkedin-certified',
   ],
 
-  // Education - Educational background and degrees
-  education: [
-    'bachelor',
-    'master',
-    'phd',
-    'doctorate',
-    'mba',
-    'degree',
-    'diploma',
-    'certificate',
-    'computer-science',
-    'software-engineering',
-    'information-technology',
-    'data-science',
-    'machine-learning',
-    'artificial-intelligence',
-    'cybersecurity',
-    'business-administration',
-    'marketing',
-    'finance',
-    'accounting',
-    'economics',
-    'psychology',
-    'design',
-    'university',
-    'college',
-    'institute',
-    'school',
-    'bootcamp',
-    'course',
-    'training',
-  ],
-
   // Tools - Software tools and platforms
   tools: [
     'visual-studio',
@@ -536,7 +503,6 @@ export function categorizeKeywords(keywords: string[]): ExtractedKeywords {
     softSkills: [],
     jobTitles: [],
     certifications: [],
-    education: [],
     tools: [],
   };
 
@@ -579,8 +545,6 @@ export function categorizeKeywords(keywords: string[]): ExtractedKeywords {
         result.softSkills.push(originalKeyword);
       } else if (isLikelyJobTitle(keyword)) {
         result.jobTitles.push(originalKeyword);
-      } else if (isLikelyEducation(keyword)) {
-        result.education.push(originalKeyword);
       }
     }
   });
@@ -665,16 +629,6 @@ function isLikelyJobTitle(keyword: string): boolean {
   ];
 
   return jobTitlePatterns.some((pattern) => pattern.test(keyword));
-}
-
-function isLikelyEducation(keyword: string): boolean {
-  const educationPatterns = [
-    /(degree|diploma|certificate|certification)$/,
-    /(university|college|institute|school)$/,
-    /(bachelor|master|phd|mba)$/,
-  ];
-
-  return educationPatterns.some((pattern) => pattern.test(keyword));
 }
 
 // Simple string similarity function

@@ -28,7 +28,6 @@ export interface ExtractedKeywords {
   softSkills: string[];
   jobTitles: string[];
   certifications: string[];
-  education: string[];
   tools: string[];
 }
 
@@ -53,7 +52,6 @@ export interface ATSScores {
   jobTitle: DimensionScore;
   softSkills: DimensionScore;
   certifications: DimensionScore;
-  education: DimensionScore;
   tools: DimensionScore;
 }
 
@@ -91,16 +89,14 @@ export interface ScoringWeights {
   jobTitle: number;
   softSkills: number;
   certifications: number;
-  education: number;
   tools: number;
 }
 
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
-  hardSkills: 0.4, // 40% - Most important
-  jobTitle: 0.2, // 20% - Job title matching
+  hardSkills: 0.45, // 45% - Most important (increased from 40%)
+  jobTitle: 0.25, // 25% - Job title matching (increased from 20%)
   softSkills: 0.15, // 15% - Soft skills
   certifications: 0.1, // 10% - Certifications
-  education: 0.1, // 10% - Education background
   tools: 0.05, // 5% - Tools/tech stack
 };
 

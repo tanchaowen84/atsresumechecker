@@ -71,6 +71,8 @@ export interface ESCOValidatedKeyword {
 export class ESCOAPIClient {
   private cache = new Map<string, any>();
   private readonly cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
+  private validationCache = new Map<string, ESCOValidatedKeyword>();
+  private readonly validationCacheExpiry = 60 * 60 * 1000; // 1 hour for validation results
 
   /**
    * Search for skills in ESCO database
@@ -173,10 +175,17 @@ export class ESCOAPIClient {
   }
 
   /**
-   * Validate a keyword against ESCO database
+   * Validate a keyword against ESCO database with smart caching
    */
   async validateKeyword(keyword: string): Promise<ESCOValidatedKeyword> {
     const normalizedKeyword = keyword.toLowerCase().trim();
+
+    // Check validation cache first
+    const cacheKey = `validation_${normalizedKeyword}`;
+    const cached = this.getValidationFromCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     // Search both skills and occupations in parallel with reduced limits
     const [skills, occupations] = await Promise.all([
@@ -224,7 +233,7 @@ export class ESCOAPIClient {
       normalizedKeyword
     );
 
-    return {
+    const result: ESCOValidatedKeyword = {
       keyword,
       isValidated: confidence > 0.7,
       escoMatch: bestMatch,
@@ -232,6 +241,11 @@ export class ESCOAPIClient {
       category,
       suggestions: suggestions.slice(0, 3), // Top 3 suggestions
     };
+
+    // Cache the validation result
+    this.setValidationCache(cacheKey, result);
+
+    return result;
   }
 
   /**
@@ -243,7 +257,6 @@ export class ESCOAPIClient {
     // 并行批处理优化
     const batchSize = 20; // 增加批次大小
     const maxConcurrentBatches = 10; // 控制并发数
-    const delay = 50; // 减少延迟
     const results: ESCOValidatedKeyword[] = [];
 
     // Create batches
@@ -462,6 +475,36 @@ export class ESCOAPIClient {
       data,
       timestamp: Date.now(),
     });
+  }
+
+  /**
+   * Validation cache management
+   */
+  private getValidationFromCache(key: string): ESCOValidatedKeyword | null {
+    const cached = this.validationCache.get(key);
+    if (cached) {
+      // Check if cache entry has timestamp (for backward compatibility)
+      const cacheEntry = cached as any;
+      if (
+        cacheEntry.timestamp &&
+        Date.now() - cacheEntry.timestamp < this.validationCacheExpiry
+      ) {
+        return cacheEntry.data;
+      } else if (!cacheEntry.timestamp) {
+        // Old cache entry without timestamp, assume it's fresh for now
+        return cached;
+      }
+      // Cache expired, remove it
+      this.validationCache.delete(key);
+    }
+    return null;
+  }
+
+  private setValidationCache(key: string, data: ESCOValidatedKeyword): void {
+    this.validationCache.set(key, {
+      ...data,
+      timestamp: Date.now(),
+    } as any);
   }
 }
 

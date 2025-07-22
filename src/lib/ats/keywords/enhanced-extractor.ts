@@ -5,7 +5,7 @@
  * for comprehensive cross-industry skill and occupation recognition
  */
 
-import type { ExtractedKeywords, KeywordMatch } from '../types';
+import type { ExtractedKeywords } from '../types';
 import { type ESCOValidatedKeyword, escoClient } from './esco-integration';
 import { categorizeKeywords, extractRawKeywords } from './extractor';
 
@@ -131,31 +131,171 @@ export class EnhancedKeywordExtractor {
   }
 
   /**
-   * Prioritize keywords for ESCO validation
+   * Prioritize keywords for ESCO validation with enhanced noise filtering
    */
   private prioritizeKeywordsForValidation(
     keywords: string[],
     maxCount: number
   ): string[] {
-    // Score keywords based on:
-    // 1. Length (longer keywords are often more specific)
-    // 2. Alphabetic content (avoid numbers and symbols)
-    // 3. Common patterns (avoid obvious noise)
+    console.log(`🔍 Prioritizing ${keywords.length} keywords for validation`);
 
-    const scored = keywords.map((keyword) => ({
+    // Step 1: Enhanced noise filtering
+    const cleanKeywords = keywords.filter((keyword) =>
+      this.isHighQualityKeyword(keyword)
+    );
+    console.log(
+      `🧹 After noise filtering: ${cleanKeywords.length} keywords (removed ${keywords.length - cleanKeywords.length} noise)`
+    );
+
+    // Step 2: Smart scoring with multiple factors
+    const scored = cleanKeywords.map((keyword) => ({
       keyword,
-      score: this.calculateKeywordPriority(keyword),
+      score: this.calculateSmartPriority(keyword, keywords),
     }));
 
-    // Sort by score (descending) and take top N
-    return scored
+    // Step 3: Sort by score and take top N
+    const prioritized = scored
       .sort((a, b) => b.score - a.score)
       .slice(0, maxCount)
       .map((item) => item.keyword);
+
+    console.log(
+      `⭐ Top prioritized keywords: ${prioritized.slice(0, 5).join(', ')}...`
+    );
+    return prioritized;
   }
 
   /**
-   * Calculate priority score for keyword validation
+   * Enhanced noise filtering - check if keyword is high quality
+   */
+  private isHighQualityKeyword(keyword: string): boolean {
+    const lowerKeyword = keyword.toLowerCase().trim();
+
+    // Basic length check
+    if (lowerKeyword.length < 2 || lowerKeyword.length > 25) return false;
+
+    // Enhanced noise patterns
+    const noisePatterns = [
+      /^\d+$/, // Pure numbers: 123, 2023
+      /^\d{4}$/, // Years: 2019, 2023
+      /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/, // Dates: 12/2023, 01-2024
+      /^[\d\-\(\)\+\s]+$/, // Phone numbers: +1-234-567-8900
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, // Emails
+      /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$/i, // Month abbreviations
+      /^(january|february|march|april|may|june|july|august|september|october|november|december)$/i, // Full months
+      /^(mon|tue|wed|thu|fri|sat|sun)$/i, // Day abbreviations
+      /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i, // Full days
+      /^(st|nd|rd|th)$/, // Ordinal suffixes
+      /^(am|pm)$/i, // Time indicators
+      /^(inc|llc|ltd|corp|co)$/i, // Company suffixes
+      /^(mr|mrs|ms|dr|prof)$/i, // Titles
+      /^[ivxlcdm]+$/i, // Roman numerals: i, ii, iii, iv, v
+      /^\d+[a-z]{1,2}$/, // Ordinals: 1st, 2nd, 3rd
+      /^[^a-zA-Z]*$/, // No letters at all
+      /^(the|and|or|but|in|on|at|to|for|of|with|by|from|as|is|was|are|were|be|been|have|has|had|do|does|did|will|would|could|should|may|might|can|must)$/i, // Common stop words
+    ];
+
+    // Check against noise patterns
+    for (const pattern of noisePatterns) {
+      if (pattern.test(lowerKeyword)) {
+        return false;
+      }
+    }
+
+    // Additional quality checks
+    if (lowerKeyword.length === 1) return false; // Single characters
+    if (/^\d/.test(lowerKeyword) && !/^\d+[a-zA-Z]/.test(lowerKeyword))
+      return false; // Starting with number but not version-like
+
+    // Check for meaningful content
+    const hasLetters = /[a-zA-Z]/.test(lowerKeyword);
+    const letterRatio =
+      (lowerKeyword.match(/[a-zA-Z]/g) || []).length / lowerKeyword.length;
+
+    return hasLetters && letterRatio >= 0.5; // At least 50% letters
+  }
+
+  /**
+   * Smart priority calculation with context awareness
+   */
+  private calculateSmartPriority(
+    keyword: string,
+    allKeywords: string[]
+  ): number {
+    let score = 0;
+    const lowerKeyword = keyword.toLowerCase();
+
+    // Base score from length (optimal range: 3-15 characters)
+    const length = keyword.length;
+    if (length >= 3 && length <= 15) {
+      score += Math.min(length * 1.5, 15);
+    } else if (length > 15 && length <= 20) {
+      score += 8; // Longer terms, moderate penalty
+    }
+
+    // Format recognition bonuses
+    if (/^[A-Z][a-z]+$/.test(keyword)) score += 8; // Proper case: React, JavaScript
+    if (/^[A-Z]{2,6}$/.test(keyword)) score += 6; // Acronyms: AWS, API, SQL
+    if (keyword.includes('-')) score += 5; // Compound terms: full-stack, front-end
+    if (keyword.includes('.')) score += 4; // Tech formats: Node.js, React.js
+    if (/ing$/.test(lowerKeyword)) score += 3; // Skills: programming, testing
+
+    // Technology and skill patterns
+    if (
+      /^(javascript|typescript|python|java|react|angular|vue|node|express|spring|django|flask)$/i.test(
+        lowerKeyword
+      )
+    )
+      score += 10;
+    if (
+      /^(aws|azure|gcp|docker|kubernetes|git|github|gitlab|jenkins|terraform)$/i.test(
+        lowerKeyword
+      )
+    )
+      score += 10;
+    if (
+      /^(mysql|postgresql|mongodb|redis|elasticsearch|oracle|sqlite)$/i.test(
+        lowerKeyword
+      )
+    )
+      score += 10;
+
+    // Professional terms
+    if (
+      /(developer|engineer|architect|manager|analyst|specialist|consultant|lead|senior|junior)$/i.test(
+        lowerKeyword
+      )
+    )
+      score += 8;
+    if (
+      /(experience|skilled|proficient|expert|advanced|intermediate|beginner)$/i.test(
+        lowerKeyword
+      )
+    )
+      score += 6;
+
+    // Frequency bonus (appears multiple times)
+    const frequency = allKeywords.filter(
+      (k) => k.toLowerCase() === lowerKeyword
+    ).length;
+    if (frequency > 1) score += Math.min(frequency * 2, 8);
+
+    // Alphabetic content ratio
+    const alphaRatio = (keyword.match(/[a-zA-Z]/g) || []).length / length;
+    score += alphaRatio * 5;
+
+    // Penalty for suspicious patterns
+    if (/^\d+$/.test(keyword)) score -= 50; // Pure numbers
+    if (keyword.length < 3) score -= 20; // Too short
+    if (/[^a-zA-Z0-9\-\.\s]/.test(keyword)) score -= 10; // Special characters
+    if (/^(a|an|the|and|or|but|in|on|at|to|for|of|with|by)$/i.test(keyword))
+      score -= 30; // Stop words
+
+    return Math.max(score, 0);
+  }
+
+  /**
+   * Calculate priority score for keyword validation (legacy method)
    */
   private calculateKeywordPriority(keyword: string): number {
     let score = 0;
@@ -198,7 +338,6 @@ export class EnhancedKeywordExtractor {
       softSkills: [...basicKeywords.softSkills],
       jobTitles: [...basicKeywords.jobTitles],
       certifications: [...basicKeywords.certifications],
-      education: [...basicKeywords.education],
       tools: [...basicKeywords.tools],
     };
 

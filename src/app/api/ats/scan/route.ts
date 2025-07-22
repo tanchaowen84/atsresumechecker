@@ -148,11 +148,7 @@ export async function POST(request: NextRequest) {
             (rKeyword) => rKeyword.toLowerCase() === keyword.toLowerCase()
           )
       ),
-      education: jdEnhanced.validatedKeywords.education.filter((keyword) =>
-        resumeEnhanced.validatedKeywords.education.some(
-          (rKeyword) => rKeyword.toLowerCase() === keyword.toLowerCase()
-        )
-      ),
+
       tools: jdEnhanced.validatedKeywords.tools.filter((keyword) =>
         resumeEnhanced.validatedKeywords.tools.some(
           (rKeyword) => rKeyword.toLowerCase() === keyword.toLowerCase()
@@ -186,12 +182,7 @@ export async function POST(request: NextRequest) {
             (rKeyword) => rKeyword.toLowerCase() === keyword.toLowerCase()
           )
       ),
-      education: jdEnhanced.validatedKeywords.education.filter(
-        (keyword) =>
-          !resumeEnhanced.validatedKeywords.education.some(
-            (rKeyword) => rKeyword.toLowerCase() === keyword.toLowerCase()
-          )
-      ),
+
       tools: jdEnhanced.validatedKeywords.tools.filter(
         (keyword) =>
           !resumeEnhanced.validatedKeywords.tools.some(
@@ -236,7 +227,7 @@ export async function POST(request: NextRequest) {
             softSkills: jdEnhanced.validatedKeywords.softSkills.length,
             jobTitles: jdEnhanced.validatedKeywords.jobTitles.length,
             certifications: jdEnhanced.validatedKeywords.certifications.length,
-            education: jdEnhanced.validatedKeywords.education.length,
+
             tools: jdEnhanced.validatedKeywords.tools.length,
           },
           escoStats: jdEnhanced.stats,
@@ -255,7 +246,7 @@ export async function POST(request: NextRequest) {
             jobTitles: resumeEnhanced.validatedKeywords.jobTitles.length,
             certifications:
               resumeEnhanced.validatedKeywords.certifications.length,
-            education: resumeEnhanced.validatedKeywords.education.length,
+
             tools: resumeEnhanced.validatedKeywords.tools.length,
           },
           escoStats: resumeEnhanced.stats,
@@ -312,16 +303,7 @@ export async function POST(request: NextRequest) {
                     ).toFixed(2)
                   )
                 : 0,
-            education:
-              jdEnhanced.validatedKeywords.education.length > 0
-                ? Number(
-                    (
-                      (matchingByCategory.education.length /
-                        jdEnhanced.validatedKeywords.education.length) *
-                      100
-                    ).toFixed(2)
-                  )
-                : 0,
+
             tools:
               jdEnhanced.validatedKeywords.tools.length > 0
                 ? Number(
